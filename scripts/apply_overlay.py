@@ -36,4 +36,4 @@ replace(f'{app}/build.gradle', '        minSdkVersion 21', '        minSdkVersio
 print('Overlay applied to pinned runtime')
 
 # Upstream requests API 37, which is not available on the build runner.
-replace(f"{app}/build.gradle", "compileSdk = 37", "compileSdk = 36", 1)
+replace(f"{app}/build.gradle", "compileSdk = 37", "compileSdk { version = release(36) { minorApiLevel = 1 } }", 1)

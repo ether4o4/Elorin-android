@@ -27,7 +27,7 @@ jobs:
       - name: Install native build dependencies
         run: |
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
-          sdkmanager 'platforms;android-36' 'ndk;27.3.13750724'
+          sdkmanager 'platforms;android-36.1' 'ndk;27.3.13750724'
       - name: Fetch and verify Android Java runtime
         run: |
           python3 - <<'PY'
