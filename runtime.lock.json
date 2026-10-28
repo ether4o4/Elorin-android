@@ -1,0 +1,6 @@
+{
+  "repository": "https://github.com/AngelAuraMC/Amethyst-Android.git",
+  "commit": "28d6e12d68121b7dd75f2e841058a6b7cdfe4a29",
+  "jre_url": "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/download_jre17/jre17-android-arm64.tar.xz",
+  "jre_sha256": "e162c860fe05ee4a4e4af7606437419879f6c748386a7b09fa77d10db6a64091"
+}

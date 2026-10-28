@@ -1,0 +1,63 @@
+name: Experimental Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned compatibility runtime
+        run: |
+          git init runtime
+          git -C runtime remote add origin https://github.com/AngelAuraMC/Amethyst-Android.git
+          git -C runtime fetch --depth 1 origin 28d6e12d68121b7dd75f2e841058a6b7cdfe4a29
+          git -C runtime checkout --detach FETCH_HEAD
+          git -C runtime config submodule.androidnsbypass.url https://github.com/alexytomi/androidnsbypass.git
+          git -C runtime submodule update --init MioLibPatcher androidnsbypass
+          python3 scripts/apply_overlay.py runtime
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install native build dependencies
+        run: sdkmanager 'platforms;android-37' 'ndk;27.3.13750724'
+      - name: Fetch and verify Android Java runtime
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, urllib.request
+          lock = json.load(open('runtime.lock.json'))
+          p = pathlib.Path('runtime/app_pojavlauncher/src/main/assets/elorin/jre17-arm64.tar.xz')
+          urllib.request.urlretrieve(lock['jre_url'], p)
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == lock['jre_sha256'], 'JRE checksum mismatch'
+          PY
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.1'
+      - name: Build debug APK
+        working-directory: runtime
+        run: |
+          bash scripts/languagelist_updater.sh
+          gradle :app_pojavlauncher:assembleDebug --stacktrace
+      - name: Package test build
+        run: |
+          mkdir -p out
+          cp runtime/app_pojavlauncher/build/outputs/apk/debug/*.apk out/Elorin-Android-experimental.apk
+          cp README.md runtime.lock.json elorin-bootstrap.lock.json out/
+          cd out
+          sha256sum *.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Elorin-Android-experimental
+          path: out/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-diagnostics
+          path: runtime/**/build/reports/

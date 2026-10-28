@@ -1,0 +1,5 @@
+/runtime/
+/out/
+__pycache__/
+*.apk
+*.tar.xz
