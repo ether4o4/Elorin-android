@@ -24,9 +24,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
       - name: Install native build dependencies
-        run: sdkmanager 'platforms;android-37' 'ndk;27.3.13750724'
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          sdkmanager 'platforms;android-37' 'ndk;27.3.13750724'
       - name: Fetch and verify Android Java runtime
         run: |
           python3 - <<'PY'

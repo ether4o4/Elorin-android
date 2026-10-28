@@ -45,7 +45,10 @@ public class ElorinActivity extends Activity {
     private void message(String text) { runOnUiThread(() -> status.setText(text)); }
     private void prepareAndLaunch() throws Exception {
         if (!Tools.checkStorageRoot(this)) throw new IOException("App storage is unavailable");
+        LauncherPreferences.DEFAULT_PREF.edit().putInt("allocation", 768).putBoolean("arc_capes", false).apply();
         LauncherPreferences.loadPreferences(this);
+        File working = new File(Tools.DIR_GAME_NEW);
+        if (!working.isDirectory() && !working.mkdirs()) throw new IOException("Cannot create working directory");
         File marker = new File(getFilesDir(), "runtime17-ready-v1");
         if (!marker.isFile() || MultiRTUtils.forceReread(RUNTIME) == null) {
             message("Installing bundled Java runtime…");

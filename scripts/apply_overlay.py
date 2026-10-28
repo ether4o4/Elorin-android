@@ -26,6 +26,7 @@ replace(f'{java}/tasks/AsyncAssetManager.java', '    private AsyncAssetManager()
     public static void prepareElorin(Context context) throws IOException {
         unpackComponent(context, "caciocavallo17", false);
         unpackComponent(context, "security", true);
+        unpackComponent(context, "MioLibPatcher", true);
         Tools.copyAssetFile(context, "resolv.conf", Tools.DIR_DATA, false);
     }''', 1)
 # Give this app its own install identity; retain Java namespaces and upstream attribution.
