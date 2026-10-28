@@ -34,3 +34,6 @@ replace(f'{app}/build.gradle', 'org.angelauramc.amethyst', 'org.ether4o4.elorin'
 replace(f'{app}/build.gradle', 'Amethyst (Debug)', 'Elorin Experimental')
 replace(f'{app}/build.gradle', '        minSdkVersion 21', '        minSdkVersion 26\n        ndk { abiFilters "arm64-v8a" }', 1)
 print('Overlay applied to pinned runtime')
+
+# Upstream requests API 37, which is not available on the build runner.
+replace(f"{app}/build.gradle", "compileSdk = 37", "compileSdk = 36", 1)
