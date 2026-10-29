@@ -37,3 +37,8 @@ print('Overlay applied to pinned runtime')
 
 # Upstream requests API 37, which is not available on the build runner.
 replace(f"{app}/build.gradle", "compileSdk = 37", "compileSdk { version = release(36) { minorApiLevel = 1 } }", 1)
+
+# Match the game's JNA 5.12.1 Java classes (native ABI 6.1.4).
+# The upstream AAR 5.14.0 packages ABI 7.0.0 and poisons Native initialization.
+replace(f'{app}/build.gradle', 'net.java.dev.jna:jna:5.14.0@aar', 'net.java.dev.jna:jna:5.12.1@aar', 1)
+replace(f'{app}/build.gradle', 'versionCode 10000000', 'versionCode 10000001', 1)

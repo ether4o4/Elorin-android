@@ -45,6 +45,8 @@ jobs:
         run: |
           bash scripts/languagelist_updater.sh
           gradle :app_pojavlauncher:assembleDebug --stacktrace
+      - name: Check packaged JNA compatibility
+        run: python3 scripts/check_apk.py runtime/app_pojavlauncher/build/outputs/apk/debug/app_pojavlauncher-debug.apk
       - name: Package test build
         run: |
           mkdir -p out

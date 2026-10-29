@@ -125,8 +125,19 @@ public class ElorinActivity extends Activity {
         try {
             File log = new File(Tools.DIR_GAME_HOME, "latestlog.txt");
             String text;
-            try (InputStream in = new FileInputStream(log)) { text = read(in); }
-            if (text.length() > 100000) text = text.substring(text.length() - 100000);
+            try (RandomAccessFile in = new RandomAccessFile(log, "r")) {
+                long length = in.length();
+                int headLength = (int)Math.min(length, 40000);
+                byte[] head = new byte[headLength]; in.readFully(head);
+                text = new String(head, "UTF-8");
+                if (length > headLength) {
+                    long tailStart = Math.max(headLength, length - 60000);
+                    in.seek(tailStart);
+                    byte[] tail = new byte[(int)(length - tailStart)]; in.readFully(tail);
+                    if (tailStart > headLength) text += "\n\n[Middle omitted; startup and final errors preserved]\n\n";
+                    text += new String(tail, "UTF-8");
+                }
+            }
             startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain")
                     .putExtra(Intent.EXTRA_SUBJECT, "Elorin Android diagnostic")
                     .putExtra(Intent.EXTRA_TEXT, text), "Share diagnostic log"));
