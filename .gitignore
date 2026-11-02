@@ -1,5 +1,7 @@
 /runtime/
 /out/
+/build/
+/.audit/
 __pycache__/
 *.apk
 *.tar.xz
