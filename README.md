@@ -1,6 +1,6 @@
 # Elorin Android — experimental compatibility build
 
-**Phone-tested: blocked at rendering and native system-ID initialization.** This project builds an ARM64 Android APK that embeds an Android Java 17 runtime and uses Amethyst/Pojav's AWT display and touch-input bridge. It launches Elorin's actual game entry point without a Minecraft account or Termux.
+**Phone-tested baseline: blocked at rendering and native system-ID initialization. Candidate fixes for both are now in source but still require an on-phone retest.** This project builds an ARM64 Android APK that embeds an Android Java 17 runtime and uses Amethyst/Pojav's AWT display and touch-input bridge. It launches Elorin's actual game entry point without a Minecraft account or Termux.
 
 The APK is a compatibility experiment, not a native rewrite. The first launch downloads checksum-pinned game dependencies directly from Elorin's distribution server. Game binaries are not committed to this repository.
 
@@ -12,7 +12,7 @@ Tap **Prepare and play**. First setup installs the bundled runtime and downloads
 
 ## Current limitations
 
-- Elorin's game client uses AWT/Swing extensively and references LWJGL and RuneLite's native AWT library. Platform-specific desktop native artifacts are excluded. Some general-purpose JARs still embed native libraries, including the game’s Linux-only system-ID library. These calls may still prevent startup; CPU rendering compatibility is unverified.
+- Elorin's game client uses AWT/Swing extensively and references LWJGL and RuneLite's native AWT library. Platform-specific desktop native artifacts are excluded. The native system-ID and canvas-startup compatibility changes are source-tested but not yet phone-verified; CPU rendering, login, and subsequent native calls remain unverified.
 - The display bridge provides desktop-style touch input, not a redesigned mobile game UI.
 - No gameplay, login, audio, GPU acceleration, or Android lifecycle acceptance tests have passed yet.
 - The bootstrap manifest and runtime are pinned. Updates require refreshing and validating the locks.
@@ -21,6 +21,16 @@ Tap **Prepare and play**. First setup installs the bundled runtime and downloads
 ## Reproduce
 
 See `.github/workflows/android.yml`. `runtime.lock.json` pins the upstream source and JRE hash. `scripts/apply_overlay.py` applies the checked changes; `overlay/ElorinActivity.java` contains the Android entry point. Obtain upstream at the exact pinned revision, initialize the indicated submodules, apply the overlay, place the verified JRE at `app_pojavlauncher/src/main/assets/elorin/jre17-arm64.tar.xz`, and run the documented Gradle task.
+
+`bash scripts/test_compat.sh` verifies both compatibility changes against the actual pinned game client. `bash scripts/build_compat_agent.sh runtime` builds the Java 17-compatible agent into the runtime assets.
+
+## Candidate compatibility changes — November 1, 2026
+
+These changes have passed deterministic host-side tests, and the native library has also executed under ARM64 Android 8/Bionic, but **the complete game is not yet device-verified**:
+
+1. **Native system ID:** `RspsElfPatcher` accepts only the exact pinned ARM64 `librsps.so`, changes its dependency from glibc's `libc.so.6` to Android's `libc.so`, neutralizes GNU symbol-version lookups, and converts both absolute machine-ID paths to a working-directory file. It does not alter the system-ID algorithm or its embedded constants. `ElorinNativeCompat` derives the expected 32-hex-character machine ID from Android's real `ANDROID_ID`; it does not generate a random replacement ID. JNA is directed to the patched app-private library.
+2. **Canvas startup:** the client starts its game thread from `QP` while the window is still being constructed. The Java agent defers that one call with `SwingUtilities.invokeLater`, allowing `Nj` to complete `pack()` and `setVisible(true)` before the game thread requests `Canvas.getGraphics()`. No null guard, substitute image surface, or exception suppression is used.
+3. **Verification:** the build checks the exact original and patched native hashes and verifies that the agent transforms exactly one pinned `hm.N()` call. A separate ARM64 test loaded the patched library with Android 8's actual Bionic linker and C library, called `getSystemIdWithDiagnosticsV2`, and received a system ID successfully. A successful APK build and native test still do not establish rendering, login, or gameplay compatibility.
 
 ## Attribution and licensing
 
@@ -36,6 +46,6 @@ The Android Java VM executes the game, but the game does not reach a usable logi
 3. **Unresolved rendering:** the loading renderer calls `Canvas.getGraphics()` and passes a null result to `hT.e(Graphics, int, int)`. The repeated drawing exceptions do not identify why the Canvas lacks graphics. No blanket null guard or fabricated image surface has been added: suppressing errors would not make the game visible.
 4. **Diagnostics improved:** sharing a large log now preserves the first 40 KB and last 60 KB, instead of dropping all startup errors. Reading is bounded to 100 KB rather than loading an arbitrarily large exception log into memory.
 
-For this direct Android-JVM approach, the next external dependency is an Android ARM64 build/source for Elorin's `librsps` library, with developer-supported Android device identification. The desktop libraries do not provide that. A Linux-userland compatibility architecture is a separate option requiring a different runtime and display integration.
+The next required validation is an ARM64 phone run of the candidate build. It must establish whether the derived Android machine ID is accepted by Elorin's login flow and whether the real Caciocavallo screen reaches login and remains usable. If those checks fail, developer-supported Android native libraries or further display integration may still be necessary. A Linux-userland compatibility architecture remains a separate option requiring a different runtime and display integration.
 
 No system IDs are fabricated and the client's login requirement is unchanged. Do not describe a successful APK compilation as a gameplay fix.
