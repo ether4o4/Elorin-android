@@ -67,6 +67,7 @@ public class ElorinActivity extends Activity {
         try (InputStream in = getAssets().open("elorin/bootstrap.json")) { manifest = read(in); }
         JSONArray artifacts = new JSONObject(manifest).getJSONArray("artifacts");
         StringBuilder classpath = new StringBuilder();
+        File gameClient = null;
         for (int i = 0; i < artifacts.length(); i++) {
             JSONObject artifact = artifacts.getJSONObject(i);
             // Desktop native binaries cannot be loaded by Android. Start with CPU rendering.
@@ -74,6 +75,10 @@ public class ElorinActivity extends Activity {
             String name = artifact.getString("name");
             if (!name.matches("[A-Za-z0-9_.-]+\\.jar")) throw new IOException("Invalid artifact name");
             File target = new File(gameDir, name);
+            if (name.startsWith("game-client-")) {
+                if (gameClient != null) throw new IOException("Multiple game clients in bootstrap");
+                gameClient = target;
+            }
             String hash = artifact.getString("hash");
             long size = artifact.getLong("size");
             if (!valid(target, size, hash)) {
@@ -101,9 +106,31 @@ public class ElorinActivity extends Activity {
             if (classpath.length() > 0) classpath.append(':');
             classpath.append(target.getAbsolutePath());
         }
-        String args = "-Xmx768m -Xss2m -Dsun.java2d.opengl=false --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED -cp " + classpath + " Main";
+        if (gameClient == null) throw new IOException("Bootstrap has no game client");
+        File nativeDir = new File(getFilesDir(), "elorin-native");
+        message("Preparing Android compatibility libraries…");
+        ElorinNativeCompat.prepare(this, gameClient, working, nativeDir);
+        File agent = new File(getFilesDir(), "elorin-android-agent.jar");
+        copyAsset("elorin/android-agent.jar", agent);
+        String args = "-Xmx768m -Xss2m -Dsun.java2d.opengl=false"
+                + " -Djna.library.path=" + nativeDir.getAbsolutePath()
+                + " -javaagent:" + agent.getAbsolutePath()
+                + " --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED"
+                + " --add-opens=java.base/java.net=ALL-UNNAMED"
+                + " --add-opens=java.base/java.io=ALL-UNNAMED -cp " + classpath + " Main";
         message("Starting Elorin. If it fails, use Share diagnostic log.");
         runOnUiThread(() -> startActivity(new Intent(this, JavaGUILauncherActivity.class).putExtra("javaArgs", args)));
+    }
+    private void copyAsset(String asset, File target) throws IOException {
+        File part = new File(target.getParentFile(), target.getName() + ".part");
+        try {
+            try (InputStream in = getAssets().open(asset); OutputStream out = new FileOutputStream(part)) {
+                byte[] buffer = new byte[8192]; int count;
+                while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+            }
+            if (target.isFile() && !target.delete()) throw new IOException("Cannot replace " + target.getName());
+            if (!part.renameTo(target)) throw new IOException("Cannot install " + target.getName());
+        } finally { part.delete(); }
     }
     private static boolean valid(File file, long size, String hash) throws Exception {
         if (!file.isFile() || file.length() != size) return false;
