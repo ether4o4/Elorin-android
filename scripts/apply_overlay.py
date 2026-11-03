@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply narrowly checked changes to the pinned upstream runtime."""
 from pathlib import Path
-import shutil, sys
+import shutil, subprocess, sys
 root = Path(__file__).resolve().parents[1]
 target = Path(sys.argv[1]).resolve()
 
@@ -45,7 +45,7 @@ replace(f"{app}/build.gradle", "compileSdk = 37", "compileSdk { version = releas
 # Match the game's JNA 5.12.1 Java classes (native ABI 6.1.4).
 # The upstream AAR 5.14.0 packages ABI 7.0.0 and poisons Native initialization.
 replace(f'{app}/build.gradle', 'net.java.dev.jna:jna:5.14.0@aar', 'net.java.dev.jna:jna:5.12.1@aar', 1)
-replace(f'{app}/build.gradle', 'versionCode 10000000', 'versionCode 10000004', 1)
+replace(f'{app}/build.gradle', 'versionCode 10000000', 'versionCode 10000005', 1)
 
 # Keep native submodules on the same pinned NDK as the application.
 replace('androidnsbypass/build.gradle.kts', '''android {
@@ -62,3 +62,8 @@ replace('MioLibPatcher/build.gradle.kts', '''java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
 }''', 1)
+
+# Generate the agent during every fresh overlay application, including CI.
+# Keeping this separate from the Gradle invocation previously produced APKs
+# without assets/elorin/android-agent.jar.
+subprocess.run(['bash', str(root/'scripts/build_compat_agent.sh'), str(target)], check=True)
