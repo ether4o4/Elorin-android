@@ -1,6 +1,6 @@
 # Elorin Android — experimental compatibility build
 
-**Phone-tested baseline: blocked at rendering and native system-ID initialization. Candidate fixes for both are now in source but still require an on-phone retest.** This project builds an ARM64 Android APK that embeds an Android Java 17 runtime and uses Amethyst/Pojav's AWT display and touch-input bridge. It launches Elorin's actual game entry point without a Minecraft account or Termux.
+**Phone-tested status: the latest log no longer contains the old JNA/native-system-ID failure, but rendering is still blocked.** This project builds an ARM64 Android APK that embeds an Android Java 17 runtime and uses Amethyst/Pojav's AWT display and touch-input bridge. It launches Elorin's actual game entry point without a Minecraft account or Termux.
 
 The APK is a compatibility experiment, not a native rewrite. The first launch downloads checksum-pinned game dependencies directly from Elorin's distribution server. Game binaries are not committed to this repository.
 
@@ -24,13 +24,13 @@ See `.github/workflows/android.yml`. `runtime.lock.json` pins the upstream sourc
 
 `bash scripts/test_compat.sh` verifies both compatibility changes against the actual pinned game client. `bash scripts/build_compat_agent.sh runtime` builds the Java 17-compatible agent into the runtime assets.
 
-## Candidate compatibility changes — November 1, 2026
+## Candidate compatibility changes — November 3, 2026
 
 These changes have passed deterministic host-side tests, and the native library has also executed under ARM64 Android 8/Bionic, but **the complete game is not yet device-verified**:
 
 1. **Native system ID:** `RspsElfPatcher` accepts only the exact pinned ARM64 `librsps.so`, changes its dependency from glibc's `libc.so.6` to Android's `libc.so`, neutralizes GNU symbol-version lookups, and converts both absolute machine-ID paths to a working-directory file. It does not alter the system-ID algorithm or its embedded constants. `ElorinNativeCompat` derives the expected 32-hex-character machine ID from Android's real `ANDROID_ID`; it does not generate a random replacement ID. JNA is directed to the patched app-private library.
-2. **Canvas startup:** the client starts its game thread from `QP` while the window is still being constructed. The Java agent defers that one call with `SwingUtilities.invokeLater`, allowing `Nj` to complete `pack()` and `setVisible(true)` before the game thread requests `Canvas.getGraphics()`. No null guard, substitute image surface, or exception suppression is used.
-3. **Verification:** the build checks the exact original and patched native hashes and verifies that the agent transforms exactly one pinned `hm.N()` call. A separate ARM64 test loaded the patched library with Android 8's actual Bionic linker and C library, called `getSystemIdWithDiagnosticsV2`, and received a system ID successfully. A successful APK build and native test still do not establish rendering, login, or gameplay compatibility.
+2. **Canvas startup:** the client starts its game thread from `hF.r()` while the window is still being constructed. The Java agent replaces only that method's thread start with `SwingUtilities.invokeLater`, allowing `Nj` to complete `pack()` and `setVisible(true)` before the game thread creates its Canvas and requests a Graphics peer. `hm.N()` remains synchronous because later window initialization depends on it. No null guard, substitute image surface, or exception suppression is used.
+3. **Verification:** the build checks the exact original and patched native hashes, verifies that the agent transforms exactly one pinned `hF.r()` method, and verifies that `QP` remains untransformed with its synchronous `hm.N()` call. A separate ARM64 test loaded the patched library with Android 8's actual Bionic linker and C library, called `getSystemIdWithDiagnosticsV2`, and received a system ID successfully. A successful APK build and native test still do not establish rendering, login, or gameplay compatibility.
 
 ## Attribution and licensing
 
