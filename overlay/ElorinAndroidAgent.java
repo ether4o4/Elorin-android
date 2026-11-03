@@ -1,6 +1,5 @@
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
-import java.lang.reflect.InvocationTargetException;
 import java.security.ProtectionDomain;
 
 import javax.swing.SwingUtilities;
@@ -27,7 +26,7 @@ public final class ElorinAndroidAgent {
     }
 
     static byte[] transformClass(String className, byte[] original) {
-        if (!"QP".equals(className)) return null;
+        if (!"hF".equals(className)) return null;
         try {
             ClassReader reader = new ClassReader(original);
             ClassWriter writer = new ClassWriter(reader, 0);
@@ -36,55 +35,53 @@ public final class ElorinAndroidAgent {
                 @Override
                 public MethodVisitor visitMethod(int access, String name, String descriptor,
                         String signature, String[] exceptions) {
-                    MethodVisitor delegate = super.visitMethod(access, name, descriptor, signature, exceptions);
-                    return new MethodVisitor(Opcodes.ASM8, delegate) {
-                        @Override
-                        public void visitMethodInsn(int opcode, String owner, String name,
-                                String descriptor, boolean isInterface) {
-                            if (opcode == Opcodes.INVOKEVIRTUAL && "hm".equals(owner)
-                                    && "N".equals(name) && "()V".equals(descriptor)) {
-                                // QP is constructed on the EDT. Queueing this call lets
-                                // Nj finish pack()/setVisible(true) before the game thread
-                                // creates its Canvas and requests a Graphics peer.
-                                super.visitMethodInsn(Opcodes.INVOKESTATIC, "ElorinAndroidAgent",
-                                        "startLater", "(Ljava/lang/Object;)V", false);
-                                replacements[0]++;
-                                return;
-                            }
-                            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-                        }
-                    };
+                    if (!"r".equals(name) || !"()V".equals(descriptor)) {
+                        return super.visitMethod(access, name, descriptor, signature, exceptions);
+                    }
+
+                    // hF.r() is called synchronously by hm.N() while Nj builds the
+                    // window on the EDT. Delay only the game-thread start, leaving
+                    // all other initialization (including hm.N()) synchronous.
+                    MethodVisitor replacement = super.visitMethod(
+                            access, name, descriptor, signature, exceptions);
+                    replacement.visitCode();
+                    replacement.visitVarInsn(Opcodes.ALOAD, 0);
+                    replacement.visitInsn(Opcodes.ICONST_1);
+                    replacement.visitMethodInsn(Opcodes.INVOKESTATIC, "ElorinAndroidAgent",
+                            "startLater", "(Ljava/lang/Runnable;I)V", false);
+                    replacement.visitInsn(Opcodes.RETURN);
+                    replacement.visitMaxs(2, 1);
+                    replacement.visitEnd();
+                    replacements[0]++;
+                    return null;
                 }
             };
             reader.accept(visitor, 0);
             if (replacements[0] != 1) {
-                System.err.println("Elorin Android: unexpected QP startup structure ("
+                System.err.println("Elorin Android: unexpected hF startup structure ("
                         + replacements[0] + " matches); client compatibility needs review");
                 return null;
             }
             return writer.toByteArray();
         } catch (Throwable failure) {
-            System.err.println("Elorin Android: could not install the canvas startup fix");
+            System.err.println("Elorin Android: could not install the game-thread startup fix");
             failure.printStackTrace();
             return null;
         }
     }
 
-    /** Called only by the transformed QP constructor. */
-    public static void startLater(Object game) {
+    /** Called only by the transformed hF.r() method. */
+    public static void startLater(Runnable game, int priority) {
         SwingUtilities.invokeLater(() -> {
-            try {
-                game.getClass().getMethod("N").invoke(game);
-            } catch (InvocationTargetException failure) {
-                failure.getCause().printStackTrace();
-            } catch (ReflectiveOperationException failure) {
-                failure.printStackTrace();
-            }
+            // Preserve hF.m(Runnable, int): construct, start, then set priority.
+            Thread thread = new Thread(game);
+            thread.start();
+            thread.setPriority(priority);
         });
     }
 
     /** Structural test hook; not used by the running agent. */
-    public static byte[] transformForTest(byte[] qpClass) {
-        return transformClass("QP", qpClass);
+    public static byte[] transformForTest(byte[] hFClass) {
+        return transformClass("hF", hFClass);
     }
 }
