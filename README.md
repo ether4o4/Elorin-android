@@ -6,7 +6,9 @@ The APK is a compatibility experiment, not a native rewrite. The first launch do
 
 ## Build and install
 
-The **Experimental Android APK** GitHub Actions workflow builds a debug-signed APK on pushes to main. Download its `Elorin-Android-experimental` artifact after a successful run, extract it, and install the APK on an ARM64 Android 8+ device. The primary device target is Samsung Galaxy S24 Ultra.
+The **Experimental Android APK** GitHub Actions workflow builds a debug-signed APK on pushes to main.
+
+**[Open the rolling list of successful main-branch APK builds](https://github.com/ether4o4/Elorin-android/actions/workflows/android.yml?query=branch%3Amain+is%3Asuccess)**. Select the newest green run, scroll to **Artifacts**, and download `Elorin-Android-experimental`. This link follows new successful builds instead of pointing to a fixed run. Extract the ZIP and install the APK on an ARM64 Android 8+ device. The primary device target is Samsung Galaxy S24 Ultra.
 
 Tap **Prepare and play**. First setup installs the bundled runtime and downloads game libraries. The Java display offers a keyboard, mouse mode, and left/right mouse buttons. If startup fails, return to the launcher and tap **Share diagnostic log**. Review the log before sharing; it may contain local paths or game/session details.
 
