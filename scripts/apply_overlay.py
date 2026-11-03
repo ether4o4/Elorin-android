@@ -45,7 +45,13 @@ replace(f"{app}/build.gradle", "compileSdk = 37", "compileSdk { version = releas
 # Match the game's JNA 5.12.1 Java classes (native ABI 6.1.4).
 # The upstream AAR 5.14.0 packages ABI 7.0.0 and poisons Native initialization.
 replace(f'{app}/build.gradle', 'net.java.dev.jna:jna:5.14.0@aar', 'net.java.dev.jna:jna:5.12.1@aar', 1)
-replace(f'{app}/build.gradle', 'versionCode 10000000', 'versionCode 10000003', 1)
+replace(f'{app}/build.gradle', 'versionCode 10000000', 'versionCode 10000004', 1)
+
+# Keep native submodules on the same pinned NDK as the application.
+replace('androidnsbypass/build.gradle.kts', '''android {
+    namespace = "dev.alexytomi.androidnsbypass"''', '''android {
+    namespace = "dev.alexytomi.androidnsbypass"
+    ndkVersion = "27.3.13750724"''', 1)
 
 # Compile the patcher for Java 8 without requiring a separate legacy JDK toolchain.
 replace('MioLibPatcher/build.gradle.kts', '''java {
