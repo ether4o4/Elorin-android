@@ -16,12 +16,24 @@ def replace(path, old, new, count=None):
 
 app = 'app_pojavlauncher'
 java = f'{app}/src/main/java/net/kdt/pojavlaunch'
-for source in ('ElorinActivity.java', 'ElorinNativeCompat.java', 'RspsElfPatcher.java'):
+for source in ('ElorinActivity.java', 'ElorinGameActivity.java', 'ElorinNativeCompat.java', 'RspsElfPatcher.java'):
     shutil.copyfile(root/'overlay'/source, target/java/source)
 assets = target/app/'src/main/assets/elorin'
 assets.mkdir(parents=True, exist_ok=True)
 shutil.copyfile(root/'elorin-bootstrap.lock.json', assets/'bootstrap.json')
 replace(f'{app}/src/main/AndroidManifest.xml', 'android:name=".TestStorageActivity"', 'android:name=".ElorinActivity"', 1)
+# Elorin's game screen: upstream Java display with game-oriented touch controls.
+# Same process and configuration handling as the upstream JavaGUILauncherActivity.
+replace(f'{app}/src/main/AndroidManifest.xml', '''        <activity
+            android:process=":gui_installer"
+            android:name=".JavaGUILauncherActivity"''', '''        <activity
+            android:process=":gui_installer"
+            android:name=".ElorinGameActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
+            android:screenOrientation="sensorLandscape" />
+        <activity
+            android:process=":gui_installer"
+            android:name=".JavaGUILauncherActivity"''', 1)
 # Keep the JavaGUI activity and native input/display bridge. The upstream
 # 720x600 AWT screen clips Elorin's default 765-pixel-wide game window.
 replace(f'{java}/AWTCanvasView.java', 'public static final int AWT_CANVAS_WIDTH = 720;', 'public static final int AWT_CANVAS_WIDTH = 1280;', 1)
@@ -45,7 +57,7 @@ replace(f"{app}/build.gradle", "compileSdk = 37", "compileSdk { version = releas
 # Match the game's JNA 5.12.1 Java classes (native ABI 6.1.4).
 # The upstream AAR 5.14.0 packages ABI 7.0.0 and poisons Native initialization.
 replace(f'{app}/build.gradle', 'net.java.dev.jna:jna:5.14.0@aar', 'net.java.dev.jna:jna:5.12.1@aar', 1)
-replace(f'{app}/build.gradle', 'versionCode 10000000', 'versionCode 10000006', 1)
+replace(f'{app}/build.gradle', 'versionCode 10000000', 'versionCode 10000008', 1)
 
 # Keep native submodules on the same pinned NDK as the application.
 replace('androidnsbypass/build.gradle.kts', '''android {

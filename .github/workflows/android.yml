@@ -2,6 +2,7 @@ name: Experimental Android APK
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,6 +25,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Verify compatibility changes against pinned game files
+        run: bash scripts/test_compat.sh
       - name: Install native build dependencies
         run: |
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"

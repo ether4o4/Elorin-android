@@ -1,8 +1,10 @@
 import java.awt.Canvas;
+import java.awt.Color;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 
+import javax.swing.JComponent;
 import javax.swing.SwingUtilities;
 
 import jdk.internal.org.objectweb.asm.ClassReader;
@@ -31,7 +33,86 @@ public final class ElorinAndroidAgent {
     static byte[] transformClass(String className, byte[] original) {
         if ("hF".equals(className)) return transformGameEngine(original);
         if ("Nj".equals(className)) return transformClientUi(original);
+        if (SUBSTANCE_ROOT_PANE_UI.equals(className)) return transformSubstanceRootPane(original);
         return null;
+    }
+
+    static final String SUBSTANCE_ROOT_PANE_UI =
+            "org/pushingpixels/substance/internal/ui/SubstanceRootPaneUI";
+    static final String SUBSTANCE_CORE_UTILITIES =
+            "org/pushingpixels/substance/internal/utils/SubstanceCoreUtilities";
+    private static volatile boolean titlePaneSkipLogged;
+
+    /**
+     * SubstanceRootPaneUI.propertyChange("background") colors the window's title pane
+     * through SubstanceCoreUtilities.getTitlePaneComponent(window), a method documented
+     * by its own code path to return null when the window has no Substance-decorated
+     * root pane. Desktop peers never fire that event on such a root pane, but
+     * Caciocavallo's CacioComponentPeer.postInitSwingComponent() does while
+     * Frame.addNotify() runs inside Nj's pack(). The resulting NullPointerException
+     * aborts window creation, so the Canvas never gets a Graphics peer.
+     *
+     * Only that one setBackground call is routed through setTitlePaneBackground,
+     * which applies the color when a title pane exists and does nothing when there
+     * is none to color. The stack shape is identical, so no frames change.
+     */
+    private static byte[] transformSubstanceRootPane(byte[] original) {
+        try {
+            ClassReader reader = new ClassReader(original);
+            ClassWriter writer = new ClassWriter(reader, 0);
+            int[] replacements = {0};
+            ClassVisitor visitor = new ClassVisitor(Opcodes.ASM8, writer) {
+                @Override
+                public MethodVisitor visitMethod(int access, String name, String descriptor,
+                        String signature, String[] exceptions) {
+                    MethodVisitor method = super.visitMethod(
+                            access, name, descriptor, signature, exceptions);
+                    if (!"propertyChange".equals(name)
+                            || !"(Ljava/beans/PropertyChangeEvent;)V".equals(descriptor)) {
+                        return method;
+                    }
+                    return new MethodVisitor(Opcodes.ASM8, method) {
+                        private boolean titlePaneOnStack;
+
+                        @Override
+                        public void visitMethodInsn(int opcode, String owner, String name,
+                                String descriptor, boolean isInterface) {
+                            if (opcode == Opcodes.INVOKESTATIC && SUBSTANCE_CORE_UTILITIES.equals(owner)
+                                    && "getTitlePaneComponent".equals(name)
+                                    && "(Ljava/awt/Window;)Ljavax/swing/JComponent;".equals(descriptor)) {
+                                titlePaneOnStack = true;
+                                super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                                return;
+                            }
+                            if (titlePaneOnStack && opcode == Opcodes.INVOKEVIRTUAL
+                                    && "javax/swing/JComponent".equals(owner)
+                                    && "setBackground".equals(name)
+                                    && "(Ljava/awt/Color;)V".equals(descriptor)) {
+                                titlePaneOnStack = false;
+                                replacements[0]++;
+                                super.visitMethodInsn(Opcodes.INVOKESTATIC, "ElorinAndroidAgent",
+                                        "setTitlePaneBackground",
+                                        "(Ljavax/swing/JComponent;Ljava/awt/Color;)V", false);
+                                return;
+                            }
+                            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                        }
+                    };
+                }
+            };
+            reader.accept(visitor, 0);
+            if (replacements[0] != 1) {
+                System.err.println("Elorin Android: unexpected Substance root-pane structure ("
+                        + replacements[0] + " matches); client compatibility needs review");
+                return null;
+            }
+            System.err.println("Elorin Android: Substance title-pane background fix installed");
+            return writer.toByteArray();
+        } catch (Throwable failure) {
+            System.err.println("Elorin Android: could not install the Substance title-pane fix");
+            failure.printStackTrace();
+            return null;
+        }
     }
 
     private static byte[] transformGameEngine(byte[] original) {
@@ -146,6 +227,18 @@ public final class ElorinAndroidAgent {
         if (canvas != null) return false;
         System.err.println("Elorin Android: Canvas not created; using game-engine sizing");
         return true;
+    }
+
+    /** Called only by the transformed SubstanceRootPaneUI.propertyChange method. */
+    public static void setTitlePaneBackground(JComponent titlePane, Color background) {
+        if (titlePane != null) {
+            titlePane.setBackground(background);
+            return;
+        }
+        if (!titlePaneSkipLogged) {
+            titlePaneSkipLogged = true;
+            System.err.println("Elorin Android: window has no Substance title pane; background change applies to root pane only");
+        }
     }
 
     /** Structural test hooks; not used by the running agent. */
