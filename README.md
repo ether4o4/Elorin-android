@@ -10,7 +10,19 @@ The APK is a compatibility experiment, not a native rewrite. The first launch do
 
 One click downloads the newest successful main-branch build as a ZIP. Extract it, then install `Elorin-Android-experimental.apk` on an ARM64 Android 8+ device. The primary device target is Samsung Galaxy S24 Ultra.
 
-Tap **Prepare and play**. First setup installs the bundled runtime and downloads game libraries. The Java display offers a keyboard, mouse mode, and left/right mouse buttons. If startup fails, return to the launcher and tap **Share diagnostic log**. Review the log before sharing; it may contain local paths or game/session details.
+Tap **Prepare and play**. First setup installs the bundled runtime and downloads game libraries.
+
+### Touch controls (10000008+)
+
+| Action | Touch mode (default) | Trackpad mode |
+|---|---|---|
+| Left click | Tap where you want to click | Tap anywhere (clicks at the pointer) |
+| Right click | Long-press (~0.5 s), or arm **Right-tap** and tap | Long-press, or hold **R** |
+| Drag (left button held) | Touch and drag | Hold **L** and drag with another finger |
+| Move pointer | Pointer follows your finger | Drag one finger |
+| Rotate camera | Two-finger drag, or the ▲◀▼▶ buttons | Same |
+
+The top-right bar has **⌨ Keyboard** (opens and closes the on-screen keyboard), **Mode** (Touch/Trackpad, remembered), **Right-tap** (the next tap is a right click), **Esc**, and **☰** (Enter, Copy, Paste, show/hide camera arrows, View log, Force close). Clicks hold the button for 60 ms so the client's game loop registers them. The mouse wheel is not available: the Caciocavallo input bridge ignores scroll events. If startup fails, return to the launcher and tap **Share diagnostic log**. Review the log before sharing; it may contain local paths or game/session details.
 
 ## Current limitations
 
@@ -25,6 +37,10 @@ Tap **Prepare and play**. First setup installs the bundled runtime and downloads
 See `.github/workflows/android.yml`. `runtime.lock.json` pins the upstream source and JRE hash. `scripts/apply_overlay.py` applies the checked changes; `overlay/ElorinActivity.java` contains the Android entry point. Obtain upstream at the exact pinned revision, initialize the indicated submodules, apply the overlay, place the verified JRE at `app_pojavlauncher/src/main/assets/elorin/jre17-arm64.tar.xz`, and run the documented Gradle task.
 
 `bash scripts/test_compat.sh` verifies both compatibility changes against the actual pinned game client. `bash scripts/build_compat_agent.sh runtime` builds the Java 17-compatible agent into the runtime assets.
+
+## Device test of 10000007 — November 4, 2026
+
+The Substance fix worked on the phone. The log shows `Substance title-pane background fix installed` and no `b.101`, and the game renders. Input was the next problem: in the upstream mouse mode there was no practical way to click. 10000008 replaces the upstream Java GUI buttons with the game controls described above (`overlay/ElorinGameActivity.java`, which subclasses the upstream `JavaGUILauncherActivity`). These controls are built in CI, but they have not yet been tested on a phone.
 
 ## Device test of 10000006 and candidate fix — November 4, 2026
 

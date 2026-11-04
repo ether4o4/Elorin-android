@@ -119,7 +119,7 @@ public class ElorinActivity extends Activity {
                 + " --add-opens=java.base/java.net=ALL-UNNAMED"
                 + " --add-opens=java.base/java.io=ALL-UNNAMED -cp " + classpath + " Main";
         message("Starting Elorin. If it fails, use Share diagnostic log.");
-        runOnUiThread(() -> startActivity(new Intent(this, JavaGUILauncherActivity.class).putExtra("javaArgs", args)));
+        runOnUiThread(() -> startActivity(new Intent(this, ElorinGameActivity.class).putExtra("javaArgs", args)));
     }
     private void copyAsset(String asset, File target) throws IOException {
         File part = new File(target.getParentFile(), target.getName() + ".part");
