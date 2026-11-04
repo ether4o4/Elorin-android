@@ -17,6 +17,14 @@ data = client.read_bytes()
 assert len(data) == artifact['size'] and hashlib.sha256(data).hexdigest() == artifact['hash']
 with zipfile.ZipFile(client) as jar:
     (output / 'librsps.so').write_bytes(jar.read('linux-aarch64/librsps.so'))
+# Substance (and the Radiance libraries it links against) for the title-pane fix test.
+for name in ('radiance-substance-1.0.0.jar', 'radiance-neon-1.0.0.jar', 'radiance-trident-1.0.0.jar'):
+    entry = next(a for a in manifest['artifacts'] if a['name'] == name)
+    target = output / name
+    if not target.is_file() or hashlib.sha256(target.read_bytes()).hexdigest() != entry['hash']:
+        urllib.request.urlretrieve(entry['path'], target)
+    blob = target.read_bytes()
+    assert len(blob) == entry['size'] and hashlib.sha256(blob).hexdigest() == entry['hash'], name
 print(client)
 PY
 client="$(find "$build/input" -maxdepth 1 -name 'game-client-*.jar' -print -quit)"
@@ -26,6 +34,10 @@ javac -source 17 -target 17 "${exports[@]}" -d "$build/classes" \
     "$root/overlay/ElorinAndroidAgent.java" \
     "$root/overlay/RspsElfPatcher.java" \
     "$root/tests/ElorinAndroidAgentTest.java" \
+    "$root/tests/SubstanceRootPaneFixTest.java" \
     "$root/tests/net/kdt/pojavlaunch/RspsElfPatcherTest.java"
 java -Xverify:all "${exports[@]}" -cp "$build/classes" ElorinAndroidAgentTest "$client"
+java -Xverify:all -Djava.awt.headless=true "${exports[@]}" -cp "$build/classes" SubstanceRootPaneFixTest \
+    "$build/input/radiance-substance-1.0.0.jar" "$build/input/radiance-neon-1.0.0.jar" \
+    "$build/input/radiance-trident-1.0.0.jar"
 java -cp "$build/classes" net.kdt.pojavlaunch.RspsElfPatcherTest "$build/input/librsps.so"

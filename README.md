@@ -1,6 +1,6 @@
 # Elorin Android — experimental compatibility build
 
-**Phone-tested status: the latest log no longer contains the old JNA/native-system-ID failure, but rendering is still blocked.** This project builds an ARM64 Android APK that embeds an Android Java 17 runtime and uses Amethyst/Pojav's AWT display and touch-input bridge. It launches Elorin's actual game entry point without a Minecraft account or Termux.
+**Phone-tested status (build 10000006, November 4, 2026): the native system-ID library now loads on the phone, but window creation failed inside the Substance look-and-feel, so nothing rendered. Build 10000007 contains a candidate fix that is host-verified only.** This project builds an ARM64 Android APK that embeds an Android Java 17 runtime and uses Amethyst/Pojav's AWT display and touch-input bridge. It launches Elorin's actual game entry point without a Minecraft account or Termux.
 
 The APK is a compatibility experiment, not a native rewrite. The first launch downloads checksum-pinned game dependencies directly from Elorin's distribution server. Game binaries are not committed to this repository.
 
@@ -25,6 +25,17 @@ Tap **Prepare and play**. First setup installs the bundled runtime and downloads
 See `.github/workflows/android.yml`. `runtime.lock.json` pins the upstream source and JRE hash. `scripts/apply_overlay.py` applies the checked changes; `overlay/ElorinActivity.java` contains the Android entry point. Obtain upstream at the exact pinned revision, initialize the indicated submodules, apply the overlay, place the verified JRE at `app_pojavlauncher/src/main/assets/elorin/jre17-arm64.tar.xz`, and run the documented Gradle task.
 
 `bash scripts/test_compat.sh` verifies both compatibility changes against the actual pinned game client. `bash scripts/build_compat_agent.sh runtime` builds the Java 17-compatible agent into the runtime assets.
+
+## Device test of 10000006 and candidate fix — November 4, 2026
+
+The phone log isolates the next blocker. It is now one exception, not the rendering layer as a whole:
+
+1. **Fatal, fixed in 10000007 (host-verified, not yet phone-verified):** `Nj` calls `pack()` on the EDT. `Frame.addNotify()` makes Caciocavallo create a frame peer, and `CacioComponentPeer.postInitSwingComponent()` calls `setBackground` on its Swing proxy root pane. Substance's `SubstanceRootPaneUI.propertyChange("background")` then calls `SubstanceCoreUtilities.getTitlePaneComponent(window).setBackground(...)`. That lookup returns `null` when the window has no Substance-decorated title pane, which Substance itself allows, and the unchecked call throws a `NullPointerException`. `pack()` aborts, the client reports `b.101`, the frame never gets a peer, and every subsequent `Canvas.getGraphics()` returns `null`. That causes the repeated `hT.e` drawing errors. The agent now routes only that one `setBackground` call through a helper. The helper applies the color when a title pane exists and does nothing when there is none to color. `bash scripts/test_compat.sh` reproduces the exact device exception with the pinned `radiance-substance-1.0.0.jar`, then shows that the transformed class links under `-Xverify:all` and handles the same event. CI now runs these tests and builds pull requests too.
+2. **Native system ID:** `librsps.so` loads from the app-private directory. The linker prints only warnings for unknown GNU version DT entries (ignored by Bionic), and the preserved log has no system-ID failure. Login acceptance is still unverified.
+3. **Non-fatal, not changed:** `jr` logs `NumberFormatException: "19-internal"` while parsing a version string. The client catches it and startup continues. `vN`/`vV` plugin start failures occurred while the frame was failing to build, so they may be consequences. Recheck them after this fix.
+4. **Audio, not yet addressed:** the runtime has no `libjsound`, so `AudioSystem.getLine` finds no `SourceDataLine`. Expect no sound until an audio bridge is added. This did not block startup.
+
+Next phone check: install 10000007, then confirm that the log contains `Substance title-pane background fix installed` and no `b.101`, and that the loading screen draws.
 
 ## Candidate compatibility changes — November 3, 2026
 
