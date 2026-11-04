@@ -27,5 +27,5 @@ javac -source 17 -target 17 "${exports[@]}" -d "$build/classes" \
     "$root/overlay/RspsElfPatcher.java" \
     "$root/tests/ElorinAndroidAgentTest.java" \
     "$root/tests/net/kdt/pojavlaunch/RspsElfPatcherTest.java"
-java "${exports[@]}" -cp "$build/classes" ElorinAndroidAgentTest "$client"
+java -Xverify:all "${exports[@]}" -cp "$build/classes" ElorinAndroidAgentTest "$client"
 java -cp "$build/classes" net.kdt.pojavlaunch.RspsElfPatcherTest "$build/input/librsps.so"
